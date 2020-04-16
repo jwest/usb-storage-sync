@@ -1,5 +1,5 @@
 {
-  "name": "usb-storage-sync",
+  "name": "usb-sync-tool",
   "version": "1.0.0",
   "description": "",
   "main": "index.js",
@@ -9,6 +9,7 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
-    "usb-detection": "^4.7.0"
+    "drivelist": "^8.0.10",
+    "usb": "^1.6.3"
   }
 }
