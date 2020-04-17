@@ -8,7 +8,8 @@ const drivelist = require('drivelist');
 console.log('STDOUT [usb] start listening');
 
 const TMP_PREFIX = 'uds_fuse';
-const sourceDir = '/home/pi/Music/';
+const SOURCE_DIR = '/home/pi/Music/';
+const DIR_NAMES_DESTINATION = ['Music'];
 
 function getDirNamePrefix() {
   const date = new Date();
@@ -26,7 +27,7 @@ function lineByLine(data, cb) {
 
 function findDestination(mountDir) {
   console.log(`STDOUT [destination] start finding`);
-  const dirs = ['Music'];
+  const dirs = DIR_NAMES_DESTINATION;
 
   for(let dirI in dirs) {
     const dir = dirs[dirI];
@@ -104,6 +105,31 @@ function tryMassStorage(mountDir) {
   });
 }
 
+function sync(options, sourceDir, destination) {
+  console.log(`STDOUT [rsync sd] start synchro`);
+  const output = childProcess.execSync(`rsync ${options} ${sourceDir} ${destination}`);
+  console.log(output.toString());
+  console.log(`STDOUT [rsync sd] end synchro`);
+}
+
+function syncMTP(sourceDir, destination) {
+  sync('-rvuprogress', sourceDir, destination);
+}
+
+function syncSD(sourceDir, destination) {
+  sync('-rtvuprogress --no-o --no-g --no-p --no-t --modify-window=1', sourceDir, destination);
+}
+
+function tryUmount(mountDir) {
+  console.log(`STDOUT [umount] start umount`);
+  try {
+    childProcess.execSync(`sudo umount ${mountDir}`);
+    console.log(`STDOUT [umount] end umount`);
+  } catch(e) {
+    console.log(`STDOUT [umount] end umount (failed) ${e}`);
+  }
+}
+
 module.exports = async () => {
   const mountDir = createTmpMountDir();
   console.log(`STDOUT [mount] mount tmp dir created (${mountDir})`);
@@ -112,44 +138,18 @@ module.exports = async () => {
     console.log('STDOUT [usbDetect] device connected', device);
 
     tryMassStorage(mountDir)
-      .then(() => {
-        const destination = findDestination(mountDir);
-        console.log(`STDOUT [rsync sd] start synchro`);
-        childProcess.execSync(`rsync -nrvuprogress ${sourceDir} ${destination}`);
-        console.log(`STDOUT [rsync sd] end synchro`);
-      })
-      .then(() => {
-        console.log(`STDOUT [umount sd] start umount`);
-        try {
-          childProcess.execSync(`sudo umount ${mountDir}`);
-          console.log(`STDOUT [umount sd] end umount`);
-        } catch(e) {
-          console.log(`STDOUT [umount sd] end umount (failed) ${e}`);
-        }
-      })
+      .then(() => syncSD(SOURCE_DIR, findDestination(mountDir)))
       .catch((e) => {
-        console.log(`STDOUT [mount sd] failed`, e);
-      });
+        console.log(`STDERR [mount sd] failed`, e);
+      })
+      .finally(() => tryUmount(mountDir));
 
     tryMTP(mountDir)
-      .then(() => {
-        const destination = findDestination(mountDir);
-        console.log(`STDOUT [rsync mtp] start synchro`);
-        childProcess.execSync(`rsync -nrvuprogress ${sourceDir} ${destination}`);
-        console.log(`STDOUT [rsync mtp] end synchro`);
-      })
-      .then(() => {
-        console.log(`STDOUT [umount mtp] start umount`);
-        try {
-          childProcess.execSync(`sudo umount ${mountDir}`);
-          console.log(`STDOUT [umount mtp] end umount`);
-        } catch(e) {
-          console.log(`STDOUT [umount mtp] end umount (failed) ${e}`);
-        }
-      })
+      .then(() => syncMTP(SOURCE_DIR, findDestination(mountDir)))
       .catch((e) => {
-        console.log(`STDOUT [mount mtp] failed`, e);
-      });
+        console.log(`STDERR [mount mtp] failed`, e);
+      })
+      .finally(() => tryUmount(mountDir));
   });
 
   usb.on('detach', (device) => {

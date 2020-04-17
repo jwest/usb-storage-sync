@@ -21,4 +21,6 @@ rsync -nrvuprogress /home/pi/Music/ /tmp/test-j/SD\ card/ # dry-run
 rsync -nrvuprogress /home/pi/Music/ /tmp/test-j/SD\ card/
 
 sudo umount /tmp/test-j
+
+find /tmp/test -name "Music"
 ```
